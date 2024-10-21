@@ -44,7 +44,7 @@ public class S3FileStorageService implements FileStorageService {
             try (InputStream inputStream = file.getInputStream()) {
                     PutObjectRequest request = new PutObjectRequest(bucket, "images/" + metadata.getStoredFilename(), inputStream, objectMetadata)
                             .withCannedAcl(CannedAccessControlList.PublicRead);
-                    amazonS3.putObject(request);
+//                    amazonS3.putObject(request);
             } catch (Exception e) {
                 log.error("file upload failed message : {} " , e.getMessage());
                 throw new FileUploadException();
