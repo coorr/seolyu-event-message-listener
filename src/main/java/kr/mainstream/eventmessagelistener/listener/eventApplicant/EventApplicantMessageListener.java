@@ -67,7 +67,6 @@ public class EventApplicantMessageListener implements ChannelAwareMessageListene
             eventApplicantHistoryService.save(new EventApplicantHistory(dto.getEventId(), applicant.getId()));
             messageHistoryService.save(messageHistoryReqDto, MessageStatus.SUCCESS, null);
             long count = applicantService.count();
-            Thread.sleep(1000);
             messageHistoryReqDto.setMessage(dto.toString());
             listenerService.ack(message, channel);
         } catch (IllegalArgumentException | InvalidTokenException e) {
