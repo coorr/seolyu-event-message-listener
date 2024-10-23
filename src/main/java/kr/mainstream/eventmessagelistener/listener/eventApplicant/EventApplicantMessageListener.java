@@ -5,6 +5,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import kr.mainstream.eventmessagelistener.common.exception.MessageExceptionHandler;
+import kr.mainstream.eventmessagelistener.domain.applicant.Applicant;
+import kr.mainstream.eventmessagelistener.domain.applicant.ApplicantService;
+import kr.mainstream.eventmessagelistener.domain.event.applicationIssue.EventApplicantHistory;
+import kr.mainstream.eventmessagelistener.domain.event.applicationIssue.EventApplicantHistoryService;
+import kr.mainstream.eventmessagelistener.domain.resumeReview.ResumeReviewService;
+import kr.mainstream.eventmessagelistener.infrastructure.file.FileMetadata;
+import kr.mainstream.eventmessagelistener.infrastructure.file.FileStorageService;
 import kr.mainstream.eventmessagelistener.listener.ListenerService;
 import kr.mainstream.eventmessagelistener.listener.authenticate.AuthenticateService;
 import kr.mainstream.eventmessagelistener.listener.authenticate.InvalidTokenException;
@@ -19,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.listener.api.ChannelAwareMessageListener;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,16 +38,24 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Slf4j
 public class EventApplicantMessageListener implements ChannelAwareMessageListener {
+
     private final ListenerService listenerService;
     private final ObjectMapper objectMapper;
     private final MessageHistoryService messageHistoryService;
     private final AuthenticateService authenticateService;
-    private final AsyncEventApplicantService asyncEventApplicantService;
-
+    private final ApplicantService applicantService;
+    private final ResumeReviewService resumeReviewService;
+    private final EventApplicantHistoryService eventApplicantHistoryService;
+    private final FileStorageService fileStorageService;
 
     @Override
-    @Transactional
     public void onMessage(Message message, Channel channel) throws Exception {
+        processMessageAsync(message, channel);
+    }
+
+    @Async("eventAsyncExecutor")
+    @Transactional
+    public void processMessageAsync(Message message, Channel channel) throws Exception {
         MessageHistoryReqDto messageHistoryReqDto = new MessageHistoryReqDto();
         messageHistoryReqDto.init(LocalDateTime.now(), MessageType.EVENT);
 
@@ -48,8 +65,19 @@ public class EventApplicantMessageListener implements ChannelAwareMessageListene
 
             EventApplicantCreateMessageTemplate dto = (EventApplicantCreateMessageTemplate) consumeDto.getMessage();
 
-            asyncEventApplicantService.processMessage(dto, messageHistoryReqDto);
+            // 파일 업로드, 엔티티 저장, 이력 저장 등의 비즈니스 로직 수행
+            MockMultipartFile file = new MockMultipartFile("file", "mockFile.txt", "text/plain", dto.getFile());
+            FileMetadata metadata = fileStorageService.upload(file);
+            Applicant applicant = dto.toEntity(metadata.getFilePath());
+            applicantService.save(applicant);
+            resumeReviewService.initialize(applicant.getId());
+            eventApplicantHistoryService.save(new EventApplicantHistory(dto.getEventId(), applicant.getId()));
+            messageHistoryService.save(messageHistoryReqDto, MessageStatus.SUCCESS, null);
+
+            // 메시지 처리 성공 후 ack 전송
+            messageHistoryReqDto.setMessage(dto.toString());
             listenerService.ack(message, channel);
+
         } catch (IllegalArgumentException | InvalidTokenException e) {
             log.error(e.toString());
             messageHistoryService.save(messageHistoryReqDto, MessageStatus.INVALID, e.getMessage());
