@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -66,7 +67,8 @@ public class EventApplicantMessageListener implements ChannelAwareMessageListene
             resumeReviewService.initialize(applicant.getId());
             eventApplicantHistoryService.save(new EventApplicantHistory(dto.getEventId(), applicant.getId()));
             messageHistoryService.save(messageHistoryReqDto, MessageStatus.SUCCESS, null);
-
+            List<Applicant> list = applicantService.getList();
+            int size = list.size();
             messageHistoryReqDto.setMessage(dto.toString());
             listenerService.ack(message, channel);
         } catch (IllegalArgumentException | InvalidTokenException e) {

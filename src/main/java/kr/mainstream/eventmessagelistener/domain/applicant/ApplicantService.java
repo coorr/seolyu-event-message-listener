@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ApplicantService {
@@ -12,5 +14,9 @@ public class ApplicantService {
     @Transactional
     public Applicant save(Applicant applicant) {
         return applicantRepository.save(applicant);
+    }
+
+    public List<Applicant> getList() {
+        return applicantRepository.findAll();
     }
 }
