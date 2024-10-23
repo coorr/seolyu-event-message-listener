@@ -16,7 +16,7 @@ public class ApplicantService {
         return applicantRepository.save(applicant);
     }
 
-    public List<Applicant> getList() {
-        return applicantRepository.findAll();
+    public long count() {
+        return applicantRepository.count();
     }
 }
