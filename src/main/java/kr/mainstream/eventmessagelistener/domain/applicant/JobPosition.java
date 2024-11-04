@@ -8,7 +8,7 @@ import lombok.Getter;
 public enum JobPosition {
     BE,
     FE,
-    IOS,
+    iOS,
     ANDROID,
     DEVOPS
 }
