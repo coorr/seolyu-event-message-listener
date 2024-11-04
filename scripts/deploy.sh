@@ -9,6 +9,12 @@ log() {
 }
 
 log ">------------------------배포 시작 $(date '+%Y-%m-%d %H:%M:%S')------------------------"
+
+# Gradle 빌드 실행
+log "> Gradle 빌드 실행"
+cd $REPOSITORY/$PROJECT_NAME
+./gradlew clean bootJar -Pprofile=prd
+
 # .jar 파일 복사
 log "> Build 파일 복사"
 cp $REPOSITORY/$PROJECT_NAME/build/libs/*.jar $REPOSITORY/
