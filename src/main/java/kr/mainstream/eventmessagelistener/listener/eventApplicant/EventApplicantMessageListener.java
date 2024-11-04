@@ -11,17 +11,18 @@ import kr.mainstream.eventmessagelistener.domain.event.applicationHistory.EventA
 import kr.mainstream.eventmessagelistener.domain.event.applicationHistory.EventApplicantHistoryService;
 import kr.mainstream.eventmessagelistener.domain.resumeReview.ResumeReviewService;
 import kr.mainstream.eventmessagelistener.infrastructure.file.FileMetadata;
+import kr.mainstream.eventmessagelistener.infrastructure.file.FilePayload;
 import kr.mainstream.eventmessagelistener.infrastructure.file.FileStorageService;
 import kr.mainstream.eventmessagelistener.listener.ListenerService;
 import kr.mainstream.eventmessagelistener.listener.authenticate.AuthenticateService;
 import kr.mainstream.eventmessagelistener.listener.authenticate.InvalidTokenException;
 import kr.mainstream.eventmessagelistener.listener.eventApplicant.dto.EventApplicantConsumeDto;
+import kr.mainstream.eventmessagelistener.listener.eventApplicant.template.EventApplicantCreateTemplateParameter;
+import kr.mainstream.eventmessagelistener.listener.eventApplicant.template.TemplateType;
 import kr.mainstream.eventmessagelistener.message.MessageType;
 import kr.mainstream.eventmessagelistener.message.history.MessageHistoryReqDto;
 import kr.mainstream.eventmessagelistener.message.history.MessageHistoryService;
 import kr.mainstream.eventmessagelistener.message.history.MessageStatus;
-import kr.mainstream.eventmessagelistener.listener.eventApplicant.template.EventApplicantCreateTemplateParameter;
-import kr.mainstream.eventmessagelistener.listener.eventApplicant.template.TemplateType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
@@ -29,6 +30,7 @@ import org.springframework.amqp.rabbit.listener.api.ChannelAwareMessageListener;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -59,14 +61,15 @@ public class EventApplicantMessageListener implements ChannelAwareMessageListene
 
             EventApplicantCreateTemplateParameter dto = (EventApplicantCreateTemplateParameter) consumeDto.getParameter();
 
-            MockMultipartFile file = new MockMultipartFile("file", "mockFile.txt", "text/plain", dto.getFile());
+            MultipartFile file = this.convertToMultipartFile(dto.getFile());
             FileMetadata metadata = fileStorageService.upload(file);
             Applicant applicant = dto.toEntity(metadata.getFilePath());
+            messageHistoryReqDto.setMessage(dto.toString());
+
             applicantService.save(applicant);
             resumeReviewService.initialize(applicant.getId());
             eventApplicantHistoryService.save(new EventApplicantHistory(dto.getEventId(), applicant.getId()));
             messageHistoryService.save(messageHistoryReqDto, MessageStatus.SUCCESS, null);
-            messageHistoryReqDto.setMessage(dto.toString());
             listenerService.ack(message, channel);
         } catch (IllegalArgumentException | InvalidTokenException e) {
             log.error(e.toString());
@@ -76,6 +79,15 @@ public class EventApplicantMessageListener implements ChannelAwareMessageListene
             messageHistoryService.save(messageHistoryReqDto, MessageStatus.FAIL, e.getMessage());
             MessageExceptionHandler.handle(message, e.getMessage(), e);
         }
+    }
+
+    private MultipartFile convertToMultipartFile(FilePayload file) {
+        return new MockMultipartFile(
+                "file",
+                file.getOriginalFilename(),
+                file.getContentType(),
+                file.getContent()
+        );
     }
 
     private EventApplicantConsumeDto<?> resolveDto(byte[] message) {
