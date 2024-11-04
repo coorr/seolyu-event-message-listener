@@ -40,6 +40,7 @@ fi
 
 log "> 새 버전 배포 (PORT: $PORT1)"
 nohup java -jar \
+  -Duser.timezone=Asia/Seoul \
   -Dspring.config.location=$REPOSITORY/application-config.yaml  \
   -Dspring.config.location=$REPOSITORY/application.yaml  \
   -Dspring.profiles.active=prd  \
