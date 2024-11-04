@@ -1,4 +1,4 @@
-package kr.mainstream.eventmessagelistener.domain.event.applicationIssue;
+package kr.mainstream.eventmessagelistener.domain.event.applicationHistory;
 
 import jakarta.persistence.*;
 import kr.mainstream.eventmessagelistener.common.model.BaseEntityDateAggregate;

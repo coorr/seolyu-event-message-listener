@@ -1,4 +1,4 @@
-package kr.mainstream.eventmessagelistener.domain.event.applicationIssue;
+package kr.mainstream.eventmessagelistener.domain.event.applicationHistory;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
