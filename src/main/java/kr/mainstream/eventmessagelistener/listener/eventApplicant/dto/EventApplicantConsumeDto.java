@@ -1,8 +1,8 @@
 package kr.mainstream.eventmessagelistener.listener.eventApplicant.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import kr.mainstream.eventmessagelistener.message.template.AbstractMessageTemplate;
-import kr.mainstream.eventmessagelistener.message.template.TemplateType;
+import kr.mainstream.eventmessagelistener.listener.eventApplicant.template.AbstractTemplateParameter;
+import kr.mainstream.eventmessagelistener.listener.eventApplicant.template.TemplateType;
 import kr.mainstream.eventmessagelistener.listener.dto.AbstractEventConsumeDto;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,14 +17,14 @@ import org.springframework.util.Assert;
 @ToString
 @NoArgsConstructor
 @Slf4j
-public class EventApplicantConsumeDto<T extends AbstractMessageTemplate> extends AbstractEventConsumeDto {
+public class EventApplicantConsumeDto<T extends AbstractTemplateParameter> extends AbstractEventConsumeDto {
     private TemplateType templateType;
-    private T message;
+    private T parameter;
 
     @Override
     public void validate() {
         validateDefault();
         Assert.notNull(templateType, "templateType must not be null");
-        message.validateIsNull();
+        parameter.validateIsNull();
     }
 }

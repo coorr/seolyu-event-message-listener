@@ -7,8 +7,8 @@ import com.rabbitmq.client.Channel;
 import kr.mainstream.eventmessagelistener.common.exception.MessageExceptionHandler;
 import kr.mainstream.eventmessagelistener.domain.applicant.Applicant;
 import kr.mainstream.eventmessagelistener.domain.applicant.ApplicantService;
-import kr.mainstream.eventmessagelistener.domain.event.applicationIssue.EventApplicantHistory;
-import kr.mainstream.eventmessagelistener.domain.event.applicationIssue.EventApplicantHistoryService;
+import kr.mainstream.eventmessagelistener.domain.event.applicationHistory.EventApplicantHistory;
+import kr.mainstream.eventmessagelistener.domain.event.applicationHistory.EventApplicantHistoryService;
 import kr.mainstream.eventmessagelistener.domain.resumeReview.ResumeReviewService;
 import kr.mainstream.eventmessagelistener.infrastructure.file.FileMetadata;
 import kr.mainstream.eventmessagelistener.infrastructure.file.FileStorageService;
@@ -20,8 +20,8 @@ import kr.mainstream.eventmessagelistener.message.MessageType;
 import kr.mainstream.eventmessagelistener.message.history.MessageHistoryReqDto;
 import kr.mainstream.eventmessagelistener.message.history.MessageHistoryService;
 import kr.mainstream.eventmessagelistener.message.history.MessageStatus;
-import kr.mainstream.eventmessagelistener.message.template.EventApplicantCreateMessageTemplate;
-import kr.mainstream.eventmessagelistener.message.template.TemplateType;
+import kr.mainstream.eventmessagelistener.listener.eventApplicant.template.EventApplicantCreateTemplateParameter;
+import kr.mainstream.eventmessagelistener.listener.eventApplicant.template.TemplateType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
@@ -38,13 +38,13 @@ import java.time.LocalDateTime;
 @Slf4j
 public class EventApplicantMessageListener implements ChannelAwareMessageListener {
     private final ListenerService listenerService;
+    private final ObjectMapper objectMapper;
+    private final MessageHistoryService messageHistoryService;
+    private final AuthenticateService authenticateService;
     private final ApplicantService applicantService;
     private final ResumeReviewService resumeReviewService;
     private final EventApplicantHistoryService eventApplicantHistoryService;
-    private final ObjectMapper objectMapper;
     private final FileStorageService fileStorageService;
-    private final MessageHistoryService messageHistoryService;
-    private final AuthenticateService authenticateService;
 
 
     @Override
@@ -57,18 +57,16 @@ public class EventApplicantMessageListener implements ChannelAwareMessageListene
             EventApplicantConsumeDto<?> consumeDto = this.resolveDto(message.getBody());
             validate(consumeDto);
 
-            EventApplicantCreateMessageTemplate dto = (EventApplicantCreateMessageTemplate) consumeDto.getMessage();
+            EventApplicantCreateTemplateParameter dto = (EventApplicantCreateTemplateParameter) consumeDto.getParameter();
 
             MockMultipartFile file = new MockMultipartFile("file", "mockFile.txt", "text/plain", dto.getFile());
             FileMetadata metadata = fileStorageService.upload(file);
-
             Applicant applicant = dto.toEntity(metadata.getFilePath());
             applicantService.save(applicant);
             resumeReviewService.initialize(applicant.getId());
             eventApplicantHistoryService.save(new EventApplicantHistory(dto.getEventId(), applicant.getId()));
-
-            messageHistoryReqDto.setMessage(dto.toString());
             messageHistoryService.save(messageHistoryReqDto, MessageStatus.SUCCESS, null);
+            messageHistoryReqDto.setMessage(dto.toString());
             listenerService.ack(message, channel);
         } catch (IllegalArgumentException | InvalidTokenException e) {
             log.error(e.toString());
@@ -90,7 +88,7 @@ public class EventApplicantMessageListener implements ChannelAwareMessageListene
             throw new IllegalArgumentException("wrong templateType", e);
         }
 
-        Class<?> templateClass = templateType.getTemplateClass();
+        Class<?> templateClass = templateType.getParameterClass();
 
         JavaType javaType = objectMapper.getTypeFactory()
                 .constructParametricType(EventApplicantConsumeDto.class, templateClass);
@@ -106,8 +104,8 @@ public class EventApplicantMessageListener implements ChannelAwareMessageListene
         consumeDto.validate();
         authenticateService.authenticate(consumeDto);
 
-        if (!(consumeDto.getMessage() instanceof EventApplicantCreateMessageTemplate)) {
-            throw new IllegalArgumentException("Unsupported message type: " + consumeDto.getMessage().getClass().getSimpleName());
+        if (!(consumeDto.getParameter() instanceof EventApplicantCreateTemplateParameter)) {
+            throw new IllegalArgumentException("Unsupported message type: " + consumeDto.getParameter().getClass().getSimpleName());
         }
     }
 }
